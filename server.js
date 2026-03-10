@@ -1,4 +1,4 @@
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) { /* dotenv opcional */ }
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +8,9 @@ const db = require('./lib/db');
 const useSupabase = db.isSupabase();
 
 const PORT = process.env.PORT || 3000;
+
+// Chat em memória: mensagens temporárias, excluídas ao finalizar o chamado
+const ticketMessages = new Map();
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 function ensureDataFile() {
@@ -33,11 +36,10 @@ function ensureDataFile() {
         data.users.push({ id: maxId + 1, ...a, email: '', secao: '' });
       }
     });
-    data.tickets = (data.tickets || []).map((t) => ({
-      ...t,
-      messages: t.messages || [],
-      secao: t.secao || '',
-    }));
+    data.tickets = (data.tickets || []).map((t) => {
+      const { messages, ...rest } = t;
+      return { ...rest, secao: rest.secao || '' };
+    });
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.error('Erro ao garantir arquivo de dados:', err);
@@ -51,7 +53,14 @@ function readData() {
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  const toWrite = {
+    ...data,
+    tickets: (data.tickets || []).map((t) => {
+      const { messages, ...rest } = t;
+      return rest;
+    }),
+  };
+  fs.writeFileSync(DATA_FILE, JSON.stringify(toWrite, null, 2), 'utf-8');
 }
 
 const CORS_HEADERS = {
@@ -225,7 +234,7 @@ const server = http.createServer((req, res) => {
             } else {
               const data = readData();
               tickets = data.tickets || [];
-              ticket = tickets.find((t) => t.id === id);
+              ticket = tickets.find((t) => Number(t.id) === id);
               if (!ticket) return sendJson(res, 404, { error: 'Chamado não encontrado' });
             }
             if (body.title !== undefined) ticket.title = body.title;
@@ -238,7 +247,7 @@ const server = http.createServer((req, res) => {
               if (body.status === 'em_progresso') {
                 const techId = ticket.technicianId;
                 if (techId) {
-                  const other = tickets.filter((t) => t.id !== id && t.technicianId === techId && t.status === 'em_progresso');
+                  const other = tickets.filter((t) => Number(t.id) !== id && Number(t.technicianId) === Number(techId) && t.status === 'em_progresso');
                   if (other.length > 0) return sendJson(res, 409, { error: 'Você já possui um chamado em progresso.' });
                 }
                 if (!ticket.startedAt) ticket.startedAt = new Date().toISOString();
@@ -247,11 +256,12 @@ const server = http.createServer((req, res) => {
               if (body.status === 'resolvido') {
                 ticket.resolvedAt = new Date().toISOString();
                 ticket.resolutionNote = body.resolutionNote !== undefined ? String(body.resolutionNote) : (ticket.resolutionNote || '');
+                ticketMessages.delete(id);
                 if (useSupabase) await db.clearTicketMessages(id);
                 else ticket.messages = [];
               }
             }
-            if (body.technicianId !== undefined) ticket.technicianId = body.technicianId;
+            if (body.technicianId !== undefined) ticket.technicianId = body.technicianId != null ? Number(body.technicianId) : null;
             if (body.agent !== undefined) ticket.agent = body.agent;
             if (body.description !== undefined) ticket.description = body.description;
             if (body.secao !== undefined) ticket.secao = body.secao;
@@ -263,7 +273,7 @@ const server = http.createServer((req, res) => {
               return sendJson(res, 200, updated);
             }
             const data = readData();
-            const idx = data.tickets.findIndex((t) => t.id === id);
+            const idx = data.tickets.findIndex((t) => Number(t.id) === id);
             if (idx >= 0) data.tickets[idx] = ticket;
             writeData(data);
             return sendJson(res, 200, ticket);
@@ -289,7 +299,7 @@ const server = http.createServer((req, res) => {
           if (ticket.status !== 'em_progresso') return sendJson(res, 400, { error: 'Chat disponível apenas para chamados em andamento' });
 
           if (req.method === 'GET') {
-            const msgs = useSupabase ? await db.getTicketMessages(id) : (ticket.messages || []);
+            const msgs = ticketMessages.get(id) || [];
             return sendJson(res, 200, msgs);
           }
           if (req.method === 'POST') {
@@ -298,25 +308,25 @@ const server = http.createServer((req, res) => {
               const text = String(body && body.text || '').trim();
               if (!text) return sendJson(res, 400, { error: 'Mensagem não pode ser vazia' });
               try {
-                if (useSupabase) {
-                  const msg = await db.createTicketMessage(id, {
-                    senderId: body.senderId,
-                    senderName: body.senderName || 'Anônimo',
-                    senderRole: body.senderRole || 'Usuario',
-                    text,
-                  });
-                  await db.updateTicket(id, { updatedAt: new Date().toISOString() });
-                  return sendJson(res, 201, msg);
+                const list = ticketMessages.get(id) || [];
+                const maxId = list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
+                const msg = {
+                  id: maxId + 1,
+                  senderId: body.senderId,
+                  senderName: body.senderName || 'Anônimo',
+                  senderRole: body.senderRole || 'Usuario',
+                  text,
+                  createdAt: new Date().toISOString(),
+                };
+                list.push(msg);
+                ticketMessages.set(id, list);
+                if (useSupabase) await db.updateTicket(id, { updatedAt: new Date().toISOString() });
+                else {
+                  const data = readData();
+                  const t = data.tickets.find((x) => Number(x.id) === id);
+                  if (t) t.updatedAt = new Date().toISOString();
+                  writeData(data);
                 }
-                const data = readData();
-                ticket = data.tickets.find((t) => Number(t.id) === id);
-                if (!ticket) return sendJson(res, 404, { error: 'Chamado não encontrado' });
-                ticket.messages = ticket.messages || [];
-                const maxId = ticket.messages.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
-                const msg = { id: maxId + 1, senderId: body.senderId, senderName: body.senderName || 'Anônimo', senderRole: body.senderRole || 'Usuario', text, createdAt: new Date().toISOString() };
-                ticket.messages.push(msg);
-                ticket.updatedAt = new Date().toISOString();
-                writeData(data);
                 return sendJson(res, 201, msg);
               } catch (e) {
                 console.error(e);
@@ -335,6 +345,7 @@ const server = http.createServer((req, res) => {
       if (req.method === 'DELETE' && /^\/api\/tickets\/\d+$/.test(url.pathname)) {
         const id = Number(url.pathname.split('/').pop());
         const handler = async () => {
+          ticketMessages.delete(id);
           if (useSupabase) {
             const removed = await db.deleteTicket(id);
             return removed ? sendJson(res, 200, removed) : sendJson(res, 404, { error: 'Chamado não encontrado' });
@@ -483,6 +494,9 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   ensureDataFile();
   console.log(`Servidor rodando em http://localhost:${PORT}`);
-  if (useSupabase) console.log('Banco de dados: Supabase');
-  else console.log('Banco de dados: arquivo data.json');
+  if (useSupabase) {
+    console.log('Banco: Supabase (usuários, técnicos e chamados)');
+  } else {
+    console.log('Banco: data.json (usuários, técnicos e chamados em arquivo)');
+  }
 });

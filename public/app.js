@@ -67,7 +67,7 @@ function renderTickets(tickets, technicians) {
       const techOptions = (technicians || [])
         .map(
           (t) =>
-            `<option value="${t.id}" ${ticket.technicianId === t.id ? 'selected' : ''}>${t.name}</option>`
+            `<option value="${t.id}" ${Number(ticket.technicianId) === Number(t.id) ? 'selected' : ''}>${t.name}</option>`
         )
         .join('');
       tr.innerHTML = `
@@ -424,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = document.getElementById('ticket-status').value;
     const techSelect = document.getElementById('ticket-technician');
     const technicianId = techSelect.value ? Number(techSelect.value) : null;
-    const technician = technicians.find((t) => t.id === technicianId);
+    const technician = technicians.find((t) => Number(t.id) === technicianId);
     const agent = technician ? technician.name : '';
     const description = document.getElementById('ticket-description').value.trim();
 
@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = btnAssign.closest('tr');
       const select = row.querySelector('.assign-tech');
       const technicianId = select && select.value ? Number(select.value) : null;
-      const technician = technicians.find((t) => t.id === technicianId);
+      const technician = technicians.find((t) => Number(t.id) === technicianId);
       try {
         const res = await fetch(`/api/tickets/${id}`, {
           method: 'PATCH',

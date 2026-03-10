@@ -39,8 +39,8 @@ git commit -m "Aero Chamados - Sistema de chamados com Supabase"
 # Renomear branch para main (padrão do GitHub)
 git branch -M main
 
-# Conectar ao repositório (troque SEU_USUARIO pelo seu usuário do GitHub)
-git remote add origin https://github.com/SEU_USUARIO/chonline.git
+# Conectar ao repositório
+git remote add origin https://github.com/k1ngdantas/chonline.git
 
 # Enviar para o GitHub
 git push -u origin main

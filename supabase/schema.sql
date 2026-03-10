@@ -40,7 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_tickets_requester ON tickets(requester_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_technician ON tickets(technician_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 
--- Tabela de mensagens do chat (apenas para chamados em progresso)
+-- Tabela de mensagens do chat (opcional; o sistema usa memória para chat temporário)
 CREATE TABLE IF NOT EXISTS ticket_messages (
   id BIGSERIAL PRIMARY KEY,
   ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,

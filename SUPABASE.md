@@ -6,7 +6,22 @@
 2. Crie um novo projeto
 3. Aguarde a criação do banco de dados
 
-## 2. Executar o schema SQL
+## 2. Criar as tabelas
+
+### Opção A: Script automático (recomendado)
+
+1. Obtenha a **Connection string** em: **Settings** → **Database** → **Connection string** (formato URI)
+2. Adicione ao `.env`:
+   ```
+   DATABASE_URL=postgresql://postgres:[SENHA]@db.xxx.supabase.co:5432/postgres
+   ```
+3. Instale as dependências e execute:
+   ```
+   npm install
+   npm run db:setup
+   ```
+
+### Opção B: SQL Editor manual
 
 1. No painel do Supabase, vá em **SQL Editor**
 2. Crie uma nova query
@@ -58,6 +73,23 @@ E adicione no início do `server.js`:
 require('dotenv').config();
 ```
 
+## O que é armazenado no banco
+
+Quando o Supabase está configurado, **todos** os dados são gravados no banco:
+
+| Dado | Tabela | Observação |
+|------|--------|------------|
+| Usuários comuns | `users` | `role = 'Usuario'` |
+| Técnicos | `users` | `role = 'Tecnico'` |
+| Administradores | `users` | `role = 'Admin'` |
+| Chamados | `tickets` | - |
+
+Cadastros feitos na tela de registro (usuários) e em Admin → Técnicos são salvos na tabela `users`.
+
 ## Modo de fallback
 
-Se `SUPABASE_URL` e `SUPABASE_SERVICE_KEY` não estiverem definidos, o sistema usa o arquivo `data.json` (modo local).
+Se `SUPABASE_URL` e `SUPABASE_SERVICE_KEY` não estiverem definidos, o sistema usa o arquivo `data.json` (usuários, técnicos e chamados em arquivo local).
+
+## Chat temporário
+
+As mensagens do chat são armazenadas **apenas em memória** no servidor. São excluídas automaticamente quando o chamado é finalizado ou deletado. O chamado (ticket) permanece gravado no banco; apenas a conversa é temporária.

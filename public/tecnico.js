@@ -316,23 +316,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('Por favor, descreva a resolução do chamado.');
         return;
       }
+      const submitBtn = formResolve.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Salvando...';
+      }
       try {
-        const res = await fetch(`/api/tickets/${currentResolveId}`, {
+        const url = `${API_BASE}/api/tickets/${currentResolveId}`;
+        const res = await fetch(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'resolvido', resolutionNote: note }),
         });
-        if (!res.ok) throw new Error('Erro ao resolver chamado');
-        const updated = await res.json();
-        const index = tickets.findIndex((t) => t.id === currentResolveId);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || 'Erro ao resolver chamado');
+        }
+        const index = tickets.findIndex((t) => Number(t.id) === currentResolveId);
         if (index !== -1) {
-          tickets[index] = updated;
+          tickets[index] = data;
         }
         closeResolveModal();
         render();
       } catch (err) {
         console.error(err);
-        alert('Não foi possível resolver o chamado.');
+        alert(err.message || 'Não foi possível resolver o chamado.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
       }
     });
   }
