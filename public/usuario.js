@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <td class="py-2 pr-3">${ticket.agent || '-'}</td>
           <td class="py-2 pr-3 text-gray-500">${formatRelativeDate(ticket.updatedAt)}</td>
           <td class="py-2 pr-3">
-            ${isEmProgresso ? `<button data-id="${ticket.id}" class="btn-chat-user px-2 py-1 rounded-full bg-indigo-600 hover:bg-indigo-500 text-[11px]">Chat</button>` : '-'}
+            ${isEmProgresso ? `<button data-id="${ticket.id}" class="btn-chat-user px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-xs">Chat</button>` : '-'}
           </td>
         `;
         tbody.appendChild(tr);

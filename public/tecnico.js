@@ -76,12 +76,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isInProgress = ticket.status === 'em_progresso';
         const canStartThis = ticket.status === 'na_fila' && !hasInProgress;
         const startDisabledAttr = canStartThis
-          ? 'class="btn-tech-start px-2 py-1 rounded-full bg-blue-600 hover:bg-blue-500 text-[11px]"'
-          : 'disabled class="opacity-40 cursor-not-allowed px-2 py-1 rounded-full bg-blue-500/30 text-[11px]"';
+          ? 'class="btn-tech-start px-3 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-xs"'
+          : 'disabled class="opacity-40 cursor-not-allowed px-3 py-2 rounded-full bg-blue-500/30 text-xs"';
 
         const resolveDisabledAttr = isInProgress
-          ? 'class="btn-tech-resolve px-2 py-1 rounded-full bg-green-600 hover:bg-green-500 text-[11px]"'
-          : 'disabled class="opacity-40 cursor-not-allowed px-2 py-1 rounded-full bg-green-500/30 text-[11px]"';
+          ? 'class="btn-tech-resolve px-3 py-2 rounded-full bg-green-600 hover:bg-green-500 text-xs"'
+          : 'disabled class="opacity-40 cursor-not-allowed px-3 py-2 rounded-full bg-green-500/30 text-xs"';
 
         tr.innerHTML = `
           <td class="py-2 pr-3 text-gray-400">#${ticket.id}</td>
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </td>
           <td class="py-2 pr-3 text-gray-500">${formatRelativeDate(ticket.updatedAt)}</td>
           <td class="py-2 pr-3 space-x-2">
-            ${isInProgress ? `<button data-id="${ticket.id}" class="btn-chat px-2 py-1 rounded-full bg-indigo-600 hover:bg-indigo-500 text-[11px]">Chat</button>` : ''}
+            ${isInProgress ? `<button data-id="${ticket.id}" class="btn-chat px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-xs">Chat</button>` : ''}
             <button data-id="${ticket.id}" ${startDisabledAttr}>
               Iniciar
             </button>

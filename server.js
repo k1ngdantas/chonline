@@ -1,119 +1,43 @@
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 
+const db = require('./lib/db');
+const useSupabase = db.isSupabase();
+
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 function ensureDataFile() {
+  if (useSupabase) return;
   const now = new Date().toISOString();
-
-  // Se não existe, cria arquivo inicial
   if (!fs.existsSync(DATA_FILE)) {
-    const seed = {
-      tickets: [
-        {
-          id: 1,
-          title: 'Acesso à VPN falhando',
-          requesterId: 1,
-          user: 'Usuário Alfa',
-          priority: 'alta',
-          status: 'em_progresso',
-          technicianId: 3,
-          agent: 'Maria Souza',
-          description: '',
-          createdAt: now,
-          startedAt: now,
-          resolvedAt: null,
-          resolutionNote: '',
-          updatedAt: now,
-        },
-        {
-          id: 2,
-          title: 'E-mail não sincroniza',
-          requesterId: 2,
-          user: 'Usuário Beta',
-          priority: 'media',
-          status: 'aberto',
-          technicianId: null,
-          agent: '',
-          description: '',
-          createdAt: now,
-          startedAt: null,
-          resolvedAt: null,
-          resolutionNote: '',
-          updatedAt: now,
-        },
-      ],
-      users: [],
-    };
+    const seed = { tickets: [], users: [] };
     fs.writeFileSync(DATA_FILE, JSON.stringify(seed, null, 2), 'utf-8');
   }
-
-  // Atualiza estrutura existente (migração simples) e garante admin sti/1234@
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     const data = raw ? JSON.parse(raw) : { tickets: [], users: [] };
-
-    // Migração de usuários
-    data.users = (data.users || []).map((u, index) => {
-      const user = { ...u };
-      if (!user.id) user.id = index + 1;
-      if (!user.username && user.email) {
-        user.username = String(user.email).split('@')[0];
-      }
-      if (!user.password) {
-        user.password = '1234';
-      }
-      if (!user.role) {
-        user.role = 'Usuario';
-      }
-      if (user.secao === undefined) user.secao = '';
-      return user;
-    });
-
-    const adminsPadrao = [
-      { username: 'sti', name: 'Administrador', password: '1234@' },
-      { username: 'marcusdantas', name: 'Ten Marcus Dantas', password: '1234@' },
-      { username: 'lantonio', name: 'Sgt L Antonio', password: '1234@' },
+    data.users = data.users || [];
+    data.tickets = data.tickets || [];
+    const admins = [
+      { username: 'sti', name: 'Administrador', password: '1234@', role: 'Admin' },
+      { username: 'marcusdantas', name: 'Ten Marcus Dantas', password: '1234@', role: 'Admin' },
+      { username: 'lantonio', name: 'Sgt L Antonio', password: '1234@', role: 'Admin' },
     ];
-    const maxId = data.users.reduce((acc, u) => Math.max(acc, u.id || 0), 0);
-    let nextId = maxId + 1;
-    adminsPadrao.forEach((admin) => {
-      const existe = data.users.some(
-        (u) => u.username && u.username.toLowerCase() === admin.username.toLowerCase()
-      );
-      if (!existe) {
-        data.users.push({
-          id: nextId++,
-          name: admin.name,
-          email: '',
-          username: admin.username,
-          password: admin.password,
-          role: 'Admin',
-        });
+    admins.forEach((a) => {
+      if (!data.users.some((u) => (u.username || '').toLowerCase() === a.username.toLowerCase())) {
+        const maxId = data.users.reduce((acc, u) => Math.max(acc, u.id || 0), 0);
+        data.users.push({ id: maxId + 1, ...a, email: '', secao: '' });
       }
     });
-
-    // Migração de tickets: garantir campos de datas e resolução
-    data.tickets = (data.tickets || []).map((t, index) => {
-      const ticket = { ...t };
-      if (!ticket.id) ticket.id = index + 1;
-      if (!ticket.createdAt) ticket.createdAt = now;
-      if (ticket.startedAt === undefined) ticket.startedAt = null;
-      if (ticket.resolvedAt === undefined) ticket.resolvedAt = null;
-      if (ticket.resolutionNote === undefined) ticket.resolutionNote = '';
-      if (ticket.secao === undefined) ticket.secao = '';
-      if (ticket.messages === undefined) ticket.messages = [];
-      // Fallback para chamados resolvidos antigos: usar updatedAt e createdAt
-      if (ticket.status === 'resolvido') {
-        if (!ticket.resolvedAt && ticket.updatedAt) ticket.resolvedAt = ticket.updatedAt;
-        if (!ticket.startedAt && ticket.createdAt) ticket.startedAt = ticket.createdAt;
-      }
-      return ticket;
-    });
-
+    data.tickets = (data.tickets || []).map((t) => ({
+      ...t,
+      messages: t.messages || [],
+      secao: t.secao || '',
+    }));
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.error('Erro ao garantir arquivo de dados:', err);
@@ -146,35 +70,39 @@ function sendJson(res, statusCode, payload) {
 
 function parseBody(req, callback) {
   let body = '';
-  req.on('data', (chunk) => {
-    body += chunk.toString();
-  });
+  req.on('data', (chunk) => { body += chunk.toString(); });
   req.on('end', () => {
     if (!body) return callback(null, {});
     try {
-      const json = JSON.parse(body);
-      callback(null, json);
+      callback(null, JSON.parse(body));
     } catch (err) {
       callback(err);
     }
   });
 }
 
+function enrichTicketWithSecao(ticket, users) {
+  let secao = ticket.secao || '';
+  if (!secao && ticket.requesterId) {
+    const req = users.find((u) => u.id === ticket.requesterId);
+    if (req && req.secao) secao = req.secao;
+  }
+  return { ...ticket, secao: secao || '', resolutionNote: ticket.resolutionNote || '' };
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
-  // CORS preflight (OPTIONS)
   if (req.method === 'OPTIONS') {
     res.writeHead(204, CORS_HEADERS);
     res.end();
     return;
   }
 
-  // Login - verificado primeiro para garantir que funcione
   const pathname = url.pathname.replace(/\/$/, '') || '/';
+
   if (pathname === '/api/login' && req.method === 'POST') {
-    const data = readData();
-    return parseBody(req, (err, body) => {
+    return parseBody(req, async (err, body) => {
       if (err) return sendJson(res, 400, { error: 'JSON inválido' });
       body = body || {};
       const identifier = String(body.username || body.email || '').trim().toLowerCase();
@@ -182,197 +110,246 @@ const server = http.createServer((req, res) => {
       if (!identifier || !password) {
         return sendJson(res, 400, { error: 'Preencha usuário e senha' });
       }
-      const users = data.users || [];
-      const user = users.find((u) => {
-        const uUser = (u.username || '').toString().toLowerCase();
-        const uMail = (u.email || '').toString().toLowerCase();
-        const uPass = (u.password || '').toString();
-        const ok = (uUser === identifier || uMail === identifier) && uPass === password;
-        return ok;
-      });
-      if (!user) {
-        return sendJson(res, 401, { error: 'Credenciais inválidas' });
+      try {
+        let user;
+        if (useSupabase) {
+          user = await db.findUserByLogin(identifier, password);
+        } else {
+          const data = readData();
+          user = (data.users || []).find((u) => {
+            const uu = (u.username || '').toString().toLowerCase();
+            const ue = (u.email || '').toString().toLowerCase();
+            return (uu === identifier || ue === identifier) && String(u.password || '') === password;
+          });
+        }
+        if (!user) return sendJson(res, 401, { error: 'Credenciais inválidas' });
+        const { password: _p, ...safeUser } = user;
+        return sendJson(res, 200, safeUser);
+      } catch (e) {
+        console.error(e);
+        return sendJson(res, 500, { error: 'Erro ao fazer login' });
       }
-      const { password: _p, ...safeUser } = user;
-      return sendJson(res, 200, safeUser);
     });
   }
 
-  // API de tickets
   if (url.pathname.startsWith('/api/tickets')) {
     try {
-      const data = readData();
       if (req.method === 'GET' && url.pathname === '/api/tickets') {
         const requesterId = url.searchParams.get('requesterId');
         const technicianId = url.searchParams.get('technicianId');
-        const users = data.users || [];
-        let tickets = (data.tickets || []).map((t) => {
-          let secao = t.secao !== undefined && t.secao ? t.secao : '';
-          if (!secao && t.requesterId) {
-            const requester = users.find((u) => u.id === t.requesterId);
-            if (requester && requester.secao) secao = requester.secao;
+        const handler = async () => {
+          let tickets, users;
+          if (useSupabase) {
+            users = await db.getUsers();
+            tickets = await db.getTickets({ requesterId: requesterId ? Number(requesterId) : null, technicianId: technicianId ? Number(technicianId) : null });
+          } else {
+            const data = readData();
+            users = data.users || [];
+            tickets = data.tickets || [];
+            if (requesterId) tickets = tickets.filter((t) => t.requesterId === Number(requesterId));
+            if (technicianId) tickets = tickets.filter((t) => t.technicianId === Number(technicianId));
           }
-          return {
-            ...t,
-            resolutionNote: t.resolutionNote !== undefined ? t.resolutionNote : '',
-            secao: secao || '',
-          };
+          tickets = tickets.map((t) => enrichTicketWithSecao(t, users));
+          return sendJson(res, 200, tickets);
+        };
+        return handler().catch((e) => {
+          console.error(e);
+          sendJson(res, 500, { error: 'Erro ao carregar chamados' });
         });
-        if (requesterId) {
-          const id = Number(requesterId);
-          tickets = tickets.filter((t) => t.requesterId === id);
-        }
-        if (technicianId) {
-          const id = Number(technicianId);
-          tickets = tickets.filter((t) => t.technicianId === id);
-        }
-        return sendJson(res, 200, tickets);
       }
 
       if (req.method === 'POST' && url.pathname === '/api/tickets') {
-        return parseBody(req, (err, body) => {
+        return parseBody(req, async (err, body) => {
           if (err) return sendJson(res, 400, { error: 'JSON inválido' });
-          const tickets = data.tickets || [];
-          const users = data.users || [];
-          const maxId = tickets.reduce((acc, t) => Math.max(acc, t.id || 0), 0);
-          const now = new Date().toISOString();
-          let secao = body.secao || '';
-          if (!secao && body.requesterId) {
-            const requester = users.find((u) => u.id === body.requesterId);
-            if (requester && requester.secao) secao = requester.secao;
+          try {
+            let users, secao = body.secao || '';
+            if (useSupabase) {
+              users = await db.getUsers();
+              if (!secao && body.requesterId) {
+                const req = await db.getUserById(body.requesterId);
+                if (req && req.secao) secao = req.secao;
+              }
+            } else {
+              const data = readData();
+              users = data.users || [];
+              if (!secao && body.requesterId) {
+                const req = users.find((u) => u.id === body.requesterId);
+                if (req && req.secao) secao = req.secao;
+              }
+            }
+            const now = new Date().toISOString();
+            const ticket = {
+              title: body.title || 'Sem título',
+              requesterId: body.requesterId || null,
+              user: body.user || 'Usuário',
+              secao,
+              priority: body.priority || 'baixa',
+              status: body.status || 'aberto',
+              technicianId: body.technicianId || null,
+              agent: body.agent || '',
+              description: body.description || '',
+              createdAt: now,
+              startedAt: body.startedAt || null,
+              resolvedAt: null,
+              resolutionNote: '',
+              updatedAt: now,
+              messages: [],
+            };
+            if (useSupabase) {
+              const created = await db.createTicket(ticket);
+              return sendJson(res, 201, created);
+            }
+            const data = readData();
+            const maxId = (data.tickets || []).reduce((acc, t) => Math.max(acc, t.id || 0), 0);
+            ticket.id = maxId + 1;
+            data.tickets.push(ticket);
+            writeData(data);
+            return sendJson(res, 201, ticket);
+          } catch (e) {
+            console.error(e);
+            return sendJson(res, 500, { error: 'Erro ao criar chamado' });
           }
-          const ticket = {
-            id: maxId + 1,
-            title: body.title || 'Sem título',
-            requesterId: body.requesterId || null,
-            user: body.user || 'Usuário',
-            secao: secao,
-            priority: body.priority || 'baixa',
-            status: body.status || 'aberto',
-            technicianId: body.technicianId || null,
-            agent: body.agent || '',
-            description: body.description || '',
-            createdAt: now,
-            startedAt: body.startedAt || null,
-            resolvedAt: null,
-            resolutionNote: '',
-            updatedAt: now,
-            messages: [],
-          };
-          tickets.push(ticket);
-          data.tickets = tickets;
-          writeData(data);
-          return sendJson(res, 201, ticket);
         });
       }
 
       if ((req.method === 'PUT' || req.method === 'PATCH') && /^\/api\/tickets\/\d+$/.test(url.pathname)) {
         const id = Number(url.pathname.split('/').pop());
-        const tickets = data.tickets || [];
-        const ticket = tickets.find((t) => t.id === id);
-        if (!ticket) {
-          return sendJson(res, 404, { error: 'Chamado não encontrado' });
-        }
-        return parseBody(req, (err, body) => {
+        return parseBody(req, async (err, body) => {
           if (err) return sendJson(res, 400, { error: 'JSON inválido' });
-          if (body.title !== undefined) ticket.title = body.title;
-          if (body.user !== undefined) ticket.user = body.user;
-          if (body.requesterId !== undefined) ticket.requesterId = body.requesterId;
-          if (body.priority !== undefined) ticket.priority = body.priority;
-          if (body.startedAt !== undefined) ticket.startedAt = body.startedAt;
-          if (body.resolvedAt !== undefined) ticket.resolvedAt = body.resolvedAt;
-          if (body.status !== undefined) {
-            // Regra: técnico só pode ter 1 chamado em progresso por vez
-            if (body.status === 'em_progresso') {
-              const techId = ticket.technicianId;
-              if (techId) {
-                const otherInProgress = (tickets || []).some(
-                  (t) => t.id !== ticket.id && t.technicianId === techId && t.status === 'em_progresso'
-                );
-                if (otherInProgress) {
-                  return sendJson(res, 409, { error: 'Você já possui um chamado em progresso.' });
+          try {
+            let ticket, tickets;
+            if (useSupabase) {
+              ticket = await db.getTicketById(id);
+              if (!ticket) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+              tickets = await db.getTickets();
+            } else {
+              const data = readData();
+              tickets = data.tickets || [];
+              ticket = tickets.find((t) => t.id === id);
+              if (!ticket) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+            }
+            if (body.title !== undefined) ticket.title = body.title;
+            if (body.user !== undefined) ticket.user = body.user;
+            if (body.requesterId !== undefined) ticket.requesterId = body.requesterId;
+            if (body.priority !== undefined) ticket.priority = body.priority;
+            if (body.startedAt !== undefined) ticket.startedAt = body.startedAt;
+            if (body.resolvedAt !== undefined) ticket.resolvedAt = body.resolvedAt;
+            if (body.status !== undefined) {
+              if (body.status === 'em_progresso') {
+                const techId = ticket.technicianId;
+                if (techId) {
+                  const other = tickets.filter((t) => t.id !== id && t.technicianId === techId && t.status === 'em_progresso');
+                  if (other.length > 0) return sendJson(res, 409, { error: 'Você já possui um chamado em progresso.' });
                 }
+                if (!ticket.startedAt) ticket.startedAt = new Date().toISOString();
               }
-              if (!ticket.startedAt) {
-                ticket.startedAt = new Date().toISOString();
+              ticket.status = body.status;
+              if (body.status === 'resolvido') {
+                ticket.resolvedAt = new Date().toISOString();
+                ticket.resolutionNote = body.resolutionNote !== undefined ? String(body.resolutionNote) : (ticket.resolutionNote || '');
+                if (useSupabase) await db.clearTicketMessages(id);
+                else ticket.messages = [];
               }
             }
+            if (body.technicianId !== undefined) ticket.technicianId = body.technicianId;
+            if (body.agent !== undefined) ticket.agent = body.agent;
+            if (body.description !== undefined) ticket.description = body.description;
+            if (body.secao !== undefined) ticket.secao = body.secao;
+            if (body.resolutionNote !== undefined) ticket.resolutionNote = String(body.resolutionNote);
+            ticket.updatedAt = new Date().toISOString();
 
-            ticket.status = body.status;
-
-            if (body.status === 'resolvido') {
-              ticket.resolvedAt = new Date().toISOString();
-              ticket.resolutionNote = body.resolutionNote !== undefined ? String(body.resolutionNote) : (ticket.resolutionNote || '');
-              ticket.messages = [];
+            if (useSupabase) {
+              const updated = await db.updateTicket(id, ticket);
+              return sendJson(res, 200, updated);
             }
+            const data = readData();
+            const idx = data.tickets.findIndex((t) => t.id === id);
+            if (idx >= 0) data.tickets[idx] = ticket;
+            writeData(data);
+            return sendJson(res, 200, ticket);
+          } catch (e) {
+            console.error(e);
+            return sendJson(res, 500, { error: 'Erro ao atualizar chamado' });
           }
-          if (body.technicianId !== undefined) ticket.technicianId = body.technicianId;
-          if (body.agent !== undefined) ticket.agent = body.agent;
-          if (body.description !== undefined) ticket.description = body.description;
-          if (body.secao !== undefined) ticket.secao = body.secao;
-          if (body.resolutionNote !== undefined) ticket.resolutionNote = String(body.resolutionNote);
-          ticket.updatedAt = new Date().toISOString();
-          writeData(data);
-          return sendJson(res, 200, ticket);
         });
       }
 
-      const pathNorm = url.pathname.replace(/\/$/, '');
-      if (/^\/api\/tickets\/\d+\/messages$/.test(pathNorm)) {
-        const pathParts = pathNorm.split('/');
+      if (/^\/api\/tickets\/\d+\/messages$/.test(pathname)) {
+        const pathParts = pathname.split('/');
         const id = Number(pathParts[pathParts.length - 2]);
-        const tickets = data.tickets || [];
-        const ticket = tickets.find((t) => Number(t.id) === id);
-        if (!ticket) {
-          return sendJson(res, 404, { error: 'Chamado não encontrado' });
-        }
-        if (ticket.status !== 'em_progresso') {
-          return sendJson(res, 400, { error: 'Chat disponível apenas para chamados em andamento' });
-        }
-        if (!Array.isArray(ticket.messages)) ticket.messages = [];
+        const handler = async () => {
+          let ticket;
+          if (useSupabase) {
+            ticket = await db.getTicketById(id);
+          } else {
+            const data = readData();
+            ticket = (data.tickets || []).find((t) => Number(t.id) === id);
+          }
+          if (!ticket) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+          if (ticket.status !== 'em_progresso') return sendJson(res, 400, { error: 'Chat disponível apenas para chamados em andamento' });
 
-        if (req.method === 'GET') {
-          return sendJson(res, 200, ticket.messages);
-        }
-        if (req.method === 'POST') {
-          return parseBody(req, (err, body) => {
-            if (err) return sendJson(res, 400, { error: 'JSON inválido' });
-            const text = String(body && body.text || '').trim();
-            if (!text) return sendJson(res, 400, { error: 'Mensagem não pode ser vazia' });
-            const maxId = ticket.messages.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
-            const msg = {
-              id: maxId + 1,
-              senderId: body.senderId,
-              senderName: body.senderName || 'Anônimo',
-              senderRole: body.senderRole || 'Usuario',
-              text,
-              createdAt: new Date().toISOString(),
-            };
-            ticket.messages.push(msg);
-            ticket.updatedAt = new Date().toISOString();
-            try {
-              writeData(data);
-            } catch (writeErr) {
-              console.error('Erro ao salvar mensagem:', writeErr);
-              return sendJson(res, 500, { error: 'Erro ao salvar mensagem' });
-            }
-            return sendJson(res, 201, msg);
-          });
-        }
-        return sendJson(res, 405, { error: 'Método não permitido' });
+          if (req.method === 'GET') {
+            const msgs = useSupabase ? await db.getTicketMessages(id) : (ticket.messages || []);
+            return sendJson(res, 200, msgs);
+          }
+          if (req.method === 'POST') {
+            return parseBody(req, async (err, body) => {
+              if (err) return sendJson(res, 400, { error: 'JSON inválido' });
+              const text = String(body && body.text || '').trim();
+              if (!text) return sendJson(res, 400, { error: 'Mensagem não pode ser vazia' });
+              try {
+                if (useSupabase) {
+                  const msg = await db.createTicketMessage(id, {
+                    senderId: body.senderId,
+                    senderName: body.senderName || 'Anônimo',
+                    senderRole: body.senderRole || 'Usuario',
+                    text,
+                  });
+                  await db.updateTicket(id, { updatedAt: new Date().toISOString() });
+                  return sendJson(res, 201, msg);
+                }
+                const data = readData();
+                ticket = data.tickets.find((t) => Number(t.id) === id);
+                if (!ticket) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+                ticket.messages = ticket.messages || [];
+                const maxId = ticket.messages.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
+                const msg = { id: maxId + 1, senderId: body.senderId, senderName: body.senderName || 'Anônimo', senderRole: body.senderRole || 'Usuario', text, createdAt: new Date().toISOString() };
+                ticket.messages.push(msg);
+                ticket.updatedAt = new Date().toISOString();
+                writeData(data);
+                return sendJson(res, 201, msg);
+              } catch (e) {
+                console.error(e);
+                return sendJson(res, 500, { error: 'Erro ao salvar mensagem' });
+              }
+            });
+          }
+          return sendJson(res, 405, { error: 'Método não permitido' });
+        };
+        return handler().catch((e) => {
+          console.error(e);
+          sendJson(res, 500, { error: 'Erro ao carregar mensagens' });
+        });
       }
 
       if (req.method === 'DELETE' && /^\/api\/tickets\/\d+$/.test(url.pathname)) {
         const id = Number(url.pathname.split('/').pop());
-        const tickets = data.tickets || [];
-        const index = tickets.findIndex((t) => t.id === id);
-        if (index === -1) {
-          return sendJson(res, 404, { error: 'Chamado não encontrado' });
-        }
-        const removed = tickets.splice(index, 1)[0];
-        data.tickets = tickets;
-        writeData(data);
-        return sendJson(res, 200, removed);
+        const handler = async () => {
+          if (useSupabase) {
+            const removed = await db.deleteTicket(id);
+            return removed ? sendJson(res, 200, removed) : sendJson(res, 404, { error: 'Chamado não encontrado' });
+          }
+          const data = readData();
+          const idx = data.tickets.findIndex((t) => t.id === id);
+          if (idx === -1) return sendJson(res, 404, { error: 'Chamado não encontrado' });
+          const removed = data.tickets.splice(idx, 1)[0];
+          writeData(data);
+          return sendJson(res, 200, removed);
+        };
+        return handler().catch((e) => {
+          console.error(e);
+          sendJson(res, 500, { error: 'Erro ao excluir chamado' });
+        });
       }
 
       return sendJson(res, 405, { error: 'Método não permitido' });
@@ -382,90 +359,113 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // API de usuários (básica)
   if (url.pathname.startsWith('/api/users')) {
     try {
-      const data = readData();
-
       if (req.method === 'GET' && url.pathname === '/api/users') {
         const role = url.searchParams.get('role');
-        let users = data.users || [];
-        if (role) {
-          users = users.filter((u) => (u.role || '').toLowerCase() === role.toLowerCase());
-        }
-        return sendJson(res, 200, users);
+        const handler = async () => {
+          let users;
+          if (useSupabase) {
+            users = await db.getUsers(role || undefined);
+          } else {
+            const data = readData();
+            users = data.users || [];
+            if (role) users = users.filter((u) => (u.role || '').toLowerCase() === role.toLowerCase());
+          }
+          return sendJson(res, 200, users);
+        };
+        return handler().catch((e) => {
+          console.error(e);
+          sendJson(res, 500, { error: 'Erro ao carregar usuários' });
+        });
       }
 
       if (req.method === 'POST' && url.pathname === '/api/users') {
-        return parseBody(req, (err, body) => {
+        return parseBody(req, async (err, body) => {
           if (err) return sendJson(res, 400, { error: 'JSON inválido' });
-          const users = data.users || [];
-          const maxId = users.reduce((acc, u) => Math.max(acc, u.id || 0), 0);
-          const user = {
-            id: maxId + 1,
-            name: body.name || 'Usuário',
-            email: body.email || '',
-            username: body.username || (body.email ? body.email.split('@')[0] : `user${maxId + 1}`),
-            password: body.password || '1234',
-            role: body.role || 'Usuario',
-            secao: body.secao || '',
-          };
-          users.push(user);
-          data.users = users;
-          writeData(data);
-          return sendJson(res, 201, user);
+          try {
+            if (useSupabase) {
+              const user = await db.createUser(body);
+              return sendJson(res, 201, user);
+            }
+            const data = readData();
+            const maxId = (data.users || []).reduce((acc, u) => Math.max(acc, u.id || 0), 0);
+            const user = {
+              id: maxId + 1,
+              name: body.name || 'Usuário',
+              email: body.email || '',
+              username: body.username || (body.email ? body.email.split('@')[0] : `user${maxId + 1}`),
+              password: body.password || '1234',
+              role: body.role || 'Usuario',
+              secao: body.secao || '',
+            };
+            data.users.push(user);
+            writeData(data);
+            return sendJson(res, 201, user);
+          } catch (e) {
+            console.error(e);
+            return sendJson(res, 500, { error: 'Erro ao criar usuário' });
+          }
         });
       }
 
       if ((req.method === 'PUT' || req.method === 'PATCH') && /^\/api\/users\/\d+$/.test(url.pathname)) {
         const id = Number(url.pathname.split('/').pop());
-        const users = data.users || [];
-        const user = users.find((u) => u.id === id);
-        if (!user) {
-          return sendJson(res, 404, { error: 'Usuário não encontrado' });
-        }
-        return parseBody(req, (err, body) => {
+        return parseBody(req, async (err, body) => {
           if (err) return sendJson(res, 400, { error: 'JSON inválido' });
-          if (body.name !== undefined) user.name = body.name;
-          if (body.email !== undefined) user.email = body.email;
-          if (body.role !== undefined) user.role = body.role;
-          if (body.username !== undefined) user.username = body.username;
-          if (body.password !== undefined) user.password = body.password;
-          if (body.secao !== undefined) user.secao = body.secao;
-          writeData(data);
-          return sendJson(res, 200, user);
+          try {
+            if (useSupabase) {
+              const user = await db.updateUser(id, body);
+              return user ? sendJson(res, 200, user) : sendJson(res, 404, { error: 'Usuário não encontrado' });
+            }
+            const data = readData();
+            const user = data.users.find((u) => u.id === id);
+            if (!user) return sendJson(res, 404, { error: 'Usuário não encontrado' });
+            if (body.name !== undefined) user.name = body.name;
+            if (body.email !== undefined) user.email = body.email;
+            if (body.role !== undefined) user.role = body.role;
+            if (body.username !== undefined) user.username = body.username;
+            if (body.password !== undefined) user.password = body.password;
+            if (body.secao !== undefined) user.secao = body.secao;
+            writeData(data);
+            return sendJson(res, 200, user);
+          } catch (e) {
+            console.error(e);
+            return sendJson(res, 500, { error: 'Erro ao atualizar usuário' });
+          }
         });
       }
 
       if (req.method === 'DELETE' && /^\/api\/users\/\d+$/.test(url.pathname)) {
         const id = Number(url.pathname.split('/').pop());
-        const users = data.users || [];
-        const index = users.findIndex((u) => u.id === id);
-        if (index === -1) {
-          return sendJson(res, 404, { error: 'Usuário não encontrado' });
-        }
-        const removed = users.splice(index, 1)[0];
-        data.users = users;
-        writeData(data);
-        return sendJson(res, 200, removed);
+        const handler = async () => {
+          if (useSupabase) {
+            const removed = await db.deleteUser(id);
+            return removed ? sendJson(res, 200, removed) : sendJson(res, 404, { error: 'Usuário não encontrado' });
+          }
+          const data = readData();
+          const idx = data.users.findIndex((u) => u.id === id);
+          if (idx === -1) return sendJson(res, 404, { error: 'Usuário não encontrado' });
+          const removed = data.users.splice(idx, 1)[0];
+          writeData(data);
+          return sendJson(res, 200, removed);
+        };
+        return handler().catch((e) => {
+          console.error(e);
+          sendJson(res, 500, { error: 'Erro ao excluir usuário' });
+        });
       }
 
-      res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ error: 'Método não permitido' }));
+      return sendJson(res, 405, { error: 'Método não permitido' });
     } catch (err) {
       console.error('Erro na API de usuários:', err);
       return sendJson(res, 500, { error: 'Erro interno no servidor' });
     }
   }
 
-  // Arquivos estáticos (frontend)
   let filePath = url.pathname === '/' ? '/index.html' : url.pathname;
   const ext = path.extname(filePath) || '.html';
-
-  if (!path.extname(filePath)) {
-    filePath += '.html';
-  }
-
+  if (!path.extname(filePath)) filePath += '.html';
   const fullPath = path.join(__dirname, 'public', filePath);
 
   fs.readFile(fullPath, (err, content) => {
@@ -474,14 +474,7 @@ const server = http.createServer((req, res) => {
       res.end('Página não encontrada');
       return;
     }
-
-    const contentType =
-      ext === '.css'
-        ? 'text/css; charset=utf-8'
-        : ext === '.js'
-        ? 'text/javascript; charset=utf-8'
-        : 'text/html; charset=utf-8';
-
+    const contentType = ext === '.css' ? 'text/css; charset=utf-8' : ext === '.js' ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8';
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(content);
   });
@@ -489,6 +482,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   ensureDataFile();
-  console.log(`Servidor de chamados rodando em http://localhost:${PORT}`);
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
+  if (useSupabase) console.log('Banco de dados: Supabase');
+  else console.log('Banco de dados: arquivo data.json');
 });
-

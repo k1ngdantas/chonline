@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Portal do Usuário - Chamados</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
       rel="stylesheet"
@@ -11,8 +11,9 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="bg-gray-900 text-gray-100">
+    <div id="mobile-overlay" class="mobile-overlay"></div>
     <div class="flex h-screen">
-      <aside class="w-64 bg-gray-800 flex flex-col">
+      <aside id="mobile-sidebar" class="mobile-sidebar w-64 bg-gray-800 flex flex-col flex-shrink-0">
         <div class="h-16 flex items-center px-6 border-b border-gray-700">
           <span class="w-10 h-10 rounded-lg bg-blue-600 mr-3 flex items-center justify-center text-xl">🚁</span>
           <span class="font-semibold text-lg text-gray-200">Aero Chamados</span>
@@ -25,13 +26,16 @@
         </nav>
       </aside>
 
-      <main class="flex-1 flex flex-col">
-        <header
-          class="h-16 flex items-center justify-between px-8 border-b border-gray-800 bg-gray-900/80 backdrop-filter backdrop-blur"
-        >
-          <div>
+      <main class="mobile-main flex-1 flex flex-col min-w-0">
+        <header class="mobile-header h-14 flex items-center justify-between px-4 border-b border-gray-800 bg-gray-900/80 backdrop-filter backdrop-blur">
+          <div class="flex items-center gap-3">
+            <button id="btn-mobile-menu" class="p-2 rounded-lg hover:bg-gray-800 md:hidden" aria-label="Menu">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div>
             <h1 class="text-lg font-semibold tracking-wide text-gray-200">Meus Chamados</h1>
-            <p class="text-xs text-gray-500">Abra e acompanhe seus pedidos de suporte</p>
+            <p class="text-xs text-gray-500 hidden sm:block">Abra e acompanhe seus pedidos de suporte</p>
+            </div>
           </div>
           <div class="flex items-center space-x-4 text-xs">
             <span id="user-name" class="text-gray-300 font-medium">Usuário Atual</span>
@@ -44,19 +48,19 @@
           </div>
         </header>
 
-        <section class="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
+        <section class="mobile-content flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 text-sm">
           <div class="flex border-b border-gray-700 mb-4 text-xs">
             <button
               id="tab-abertos"
-              class="px-4 py-2 border-b-2 border-blue-500 text-blue-400 font-semibold"
+              class="flex-1 px-4 py-3 border-b-2 border-blue-500 text-blue-400 font-semibold min-h-[44px]"
             >
               Meus Chamados
             </button>
             <button
               id="tab-finalizados"
-              class="px-4 py-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200"
+              class="flex-1 px-4 py-3 border-b-2 border-transparent text-gray-400 hover:text-gray-200 min-h-[44px]"
             >
-              Meus chamados finalizados
+              Finalizados
             </button>
           </div>
 
@@ -69,7 +73,7 @@
             </div>
             <button
               id="btn-new-ticket-user"
-              class="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-xs font-semibold"
+              class="px-4 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-sm font-semibold min-h-[44px]"
             >
               Novo Chamado
             </button>
@@ -102,9 +106,9 @@
     <!-- Modal Chat -->
     <div
       id="modal-chat-user"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-2 md:p-4"
     >
-      <div class="bg-gray-800 rounded-xl w-full max-w-md shadow-xl border border-gray-700 flex flex-col max-h-[80vh]">
+      <div class="bg-gray-800 rounded-xl w-full max-w-md shadow-xl border border-gray-700 flex flex-col max-h-[90vh] md:max-h-[80vh]">
         <div class="flex justify-between items-center px-4 py-3 border-b border-gray-700">
           <h2 class="text-sm font-semibold text-gray-200">Chat - Chamado <span id="chat-user-ticket-id"></span></h2>
           <button id="modal-chat-user-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">&times;</button>
@@ -129,9 +133,9 @@
     <!-- Modal Chamado Usuário -->
     <div
       id="modal-user-ticket"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4 overflow-y-auto"
     >
-      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl border border-gray-700">
+      <div class="bg-gray-800 rounded-xl p-4 md:p-6 w-full max-w-md shadow-xl border border-gray-700 my-4">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-sm font-semibold text-gray-200">Novo Chamado</h2>
           <button id="modal-user-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">&times;</button>
@@ -185,6 +189,7 @@
     </div>
 
     <script src="/auth.js"></script>
+    <script src="/mobile.js"></script>
     <script src="/usuario.js"></script>
   </body>
 </html>
