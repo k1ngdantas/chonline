@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin - Técnicos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div class="flex h-screen">
+      <aside class="w-64 bg-gray-800 flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-gray-700">
+          <span class="w-10 h-10 rounded-lg bg-blue-600 mr-3 flex items-center justify-center text-xl">🚁</span>
+          <span class="font-semibold text-lg text-gray-200">Aero Chamados</span>
+        </div>
+        <nav class="flex-1 px-4 py-4 space-y-2 text-sm">
+          <span class="block text-gray-400 text-xs uppercase mb-1">Administrador</span>
+          <a href="/index.html" class="flex items-center px-3 py-2 rounded hover:bg-gray-700">
+            <span class="ml-1">Dashboard Geral</span>
+          </a>
+          <a href="/admin-tecnicos.html" class="flex items-center px-3 py-2 rounded bg-gray-900 text-blue-400 font-medium">
+            <span class="ml-1">Cadastro de Técnicos</span>
+          </a>
+          <a href="/admin-resolvidos.html" class="flex items-center px-3 py-2 rounded hover:bg-gray-700">
+            <span class="ml-1">Chamados Resolvidos</span>
+          </a>
+          <a href="/admin-usuarios.html" class="flex items-center px-3 py-2 rounded hover:bg-gray-700">
+            <span class="ml-1">Usuários Cadastrados</span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class="flex-1 flex flex-col">
+        <header
+          class="h-16 flex items-center justify-between px-8 border-b border-gray-800 bg-gray-900/80 backdrop-filter backdrop-blur"
+        >
+          <div>
+            <h1 class="text-lg font-semibold tracking-wide text-gray-200">Cadastro de Técnicos</h1>
+            <p class="text-xs text-gray-500">Gerencie usuários com perfil de técnico</p>
+          </div>
+        </header>
+
+        <section class="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-gray-800 rounded-xl p-5 shadow">
+              <h2 class="text-sm font-semibold text-gray-200 mb-3">Novo Técnico</h2>
+              <form id="form-tech" class="space-y-3 text-xs">
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block mb-1 text-gray-300" for="tech-name">Nome</label>
+                    <input
+                      id="tech-name"
+                      type="text"
+                      required
+                      class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="block mb-1 text-gray-300" for="tech-username">Usuário</label>
+                    <input
+                      id="tech-username"
+                      type="text"
+                      required
+                      class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label class="block mb-1 text-gray-300" for="tech-password">Senha</label>
+                  <input
+                    id="tech-password"
+                    type="password"
+                    class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-blue-500"
+                    placeholder="Padrão 1234 se vazio"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="mt-2 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-xs font-semibold"
+                >
+                  Salvar Técnico
+                </button>
+              </form>
+            </div>
+
+            <div class="bg-gray-800 rounded-xl p-5 shadow">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-gray-200">Lista de Técnicos</h2>
+                <span id="tech-count" class="text-xs text-gray-400">0 encontrados</span>
+              </div>
+              <div class="overflow-y-auto max-h-80">
+                <table class="w-full text-left text-xs">
+                  <thead class="text-gray-400 text-[11px] uppercase border-b border-gray-700">
+                    <tr>
+                      <th class="py-2 pr-3">Nome</th>
+                      <th class="py-2 pr-3">Usuário</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tech-table-body" class="text-[11px]">
+                    <!-- preenchido via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/auth.js"></script>
+    <script src="/admin-tecnicos.js"></script>
+  </body>
+</html>
+

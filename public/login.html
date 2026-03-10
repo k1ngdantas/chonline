@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Login - Sistema de Chamados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen flex items-center justify-center px-4">
+      <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-8 border border-gray-700">
+        <div class="flex items-center justify-center mb-6">
+          <span class="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-2xl mr-2">
+            🚁
+          </span>
+          <div>
+            <p class="text-sm text-gray-400 uppercase tracking-wide">Aero Chamados</p>
+            <h1 class="text-lg font-semibold text-gray-100">Acessar Sistema de Chamados</h1>
+          </div>
+        </div>
+
+        <div class="flex mb-4 text-xs border-b border-gray-700">
+          <button
+            id="tab-login"
+            class="flex-1 py-2 text-center border-b-2 border-blue-500 text-blue-400 font-semibold"
+          >
+            Entrar
+          </button>
+          <button
+            id="tab-register"
+            class="flex-1 py-2 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200"
+          >
+            Criar conta usuário
+          </button>
+        </div>
+
+        <form id="form-login" class="space-y-4 text-sm">
+          <div>
+            <label class="block mb-1 text-gray-300" for="login-username">Usuário ou E-mail</label>
+            <input
+              id="login-username"
+              type="text"
+              required
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+              placeholder="Ex: sti"
+            />
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300" for="login-password">Senha</label>
+            <input
+              id="login-password"
+              type="password"
+              required
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+              placeholder="••••••"
+            />
+          </div>
+          <p class="text-[11px] text-gray-500">
+            Admin padrão:
+            <span class="text-gray-200 font-mono">usuário: sti</span>,
+            <span class="text-gray-200 font-mono">senha: 1234@</span>
+          </p>
+          <button
+            type="submit"
+            class="w-full mt-2 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-sm font-semibold"
+          >
+            Entrar
+          </button>
+        </form>
+
+        <form id="form-register" class="space-y-4 text-sm hidden mt-2">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block mb-1 text-gray-300" for="reg-name">Nome</label>
+              <input
+                id="reg-name"
+                type="text"
+                required
+                class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block mb-1 text-gray-300" for="reg-username">Usuário</label>
+              <input
+                id="reg-username"
+                type="text"
+                required
+                class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300" for="reg-secao">Seção</label>
+            <select
+              id="reg-secao"
+              required
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Selecione sua seção</option>
+              <option value="E1">E1</option>
+              <option value="E2">E2</option>
+              <option value="E3">E3</option>
+              <option value="E4">E4</option>
+              <option value="E7">E7</option>
+              <option value="E10">E10</option>
+              <option value="Planejamento">Planejamento</option>
+              <option value="Doutrina">Doutrina</option>
+              <option value="Engenharia">Engenharia</option>
+              <option value="Almox">Almox</option>
+              <option value="SPP">SPP</option>
+              <option value="Tesousaria">Tesousaria</option>
+              <option value="Fusex">Fusex</option>
+              <option value="SVP">SVP</option>
+              <option value="SFPC">SFPC</option>
+              <option value="Coleta">Coleta</option>
+              <option value="GO">GO</option>
+              <option value="Aprovisionamento">Aprovisionamento</option>
+              <option value="SALC">SALC</option>
+              <option value="Ajudancia">Ajudancia</option>
+              <option value="Cmt Base">Cmt Base</option>
+              <option value="Fiscalização">Fiscalização</option>
+              <option value="PO">PO</option>
+              <option value="Arquivo">Arquivo</option>
+              <option value="Secretaria">Secretaria</option>
+            </select>
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300" for="reg-password">Senha</label>
+            <input
+              id="reg-password"
+              type="password"
+              required
+              minlength="4"
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+              value="1234"
+            />
+          </div>
+          <p class="text-[11px] text-gray-500">
+            Este cadastro cria um perfil de <span class="font-semibold text-gray-300">Usuário comum</span>. Técnicos
+            devem ser criados pelo administrador.
+          </p>
+          <button
+            type="submit"
+            class="w-full mt-2 py-2 rounded-full bg-green-600 hover:bg-green-500 text-sm font-semibold"
+          >
+            Criar conta e entrar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script src="/auth.js"></script>
+    <script src="/login.js"></script>
+  </body>
+</html>
+

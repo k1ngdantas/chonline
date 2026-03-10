@@ -1,0 +1,22 @@
+{
+  "name": "chonline-helpdesk",
+  "version": "1.0.0",
+  "description": "Sistema de chamados (helpdesk) com dashboard estilo profissional",
+  "main": "server.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "helpdesk",
+    "chamados",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}

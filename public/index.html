@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard - Sistema de Chamados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div class="flex h-screen">
+      <!-- Sidebar -->
+      <aside class="w-64 bg-gray-800 flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-gray-700">
+          <span class="w-10 h-10 rounded-lg bg-blue-600 mr-3 flex items-center justify-center text-xl">🚁</span>
+          <span class="font-semibold text-lg text-gray-200">Aero Chamados</span>
+        </div>
+        <nav class="flex-1 px-4 py-4 space-y-2 text-sm">
+          <span class="block text-gray-400 text-xs uppercase mb-1">Administrador</span>
+          <a href="/index.html" class="flex items-center px-3 py-2 rounded bg-gray-900 text-blue-400 font-medium">
+            <span class="ml-1">Dashboard Geral</span>
+          </a>
+          <a href="/admin-tecnicos.html" class="flex items-center px-3 py-2 rounded hover:bg-gray-700">
+            <span class="ml-1">Cadastro de Técnicos</span>
+          </a>
+          <a href="/admin-resolvidos.html" class="flex items-center px-3 py-2 rounded hover:bg-gray-700">
+            <span class="ml-1">Chamados Resolvidos</span>
+          </a>
+          <a href="/admin-usuarios.html" class="flex items-center px-3 py-2 rounded hover:bg-gray-700">
+            <span class="ml-1">Usuários Cadastrados</span>
+          </a>
+        </nav>
+      </aside>
+
+      <!-- Main -->
+      <main class="flex-1 flex flex-col">
+        <!-- Top bar -->
+        <header
+          class="h-16 flex items-center justify-between px-8 border-b border-gray-800 bg-gray-900/80 backdrop-filter backdrop-blur"
+        >
+          <div>
+            <h1 class="text-lg font-semibold tracking-wide uppercase text-gray-300">
+              Chamados - Visão Geral
+            </h1>
+          </div>
+          <div class="flex items-center space-x-4 text-xs">
+            <span id="admin-welcome" class="text-gray-300 font-medium hidden sm:inline">Bem vindo</span>
+            <button
+              id="btn-logout-admin"
+              class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-200 hover:bg-gray-800"
+            >
+              Sair
+            </button>
+          </div>
+        </header>
+
+        <!-- Content -->
+        <section class="flex-1 overflow-y-auto p-6 space-y-6" id="dashboard-root">
+          <!-- KPI cards -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <div class="bg-gray-800 rounded-xl p-4 shadow">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400 uppercase text-xs font-semibold">Chamados Ativos</span>
+              </div>
+              <p class="mt-3 text-3xl font-semibold" id="kpi-active">0</p>
+              <p class="mt-1 text-gray-500 text-xs" id="kpi-today">0 novos hoje</p>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 shadow">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400 uppercase text-xs font-semibold">Tempo Médio de Resposta</span>
+              </div>
+              <p class="mt-3 text-3xl font-semibold" id="kpi-response-time">-</p>
+              <p class="mt-1 text-gray-500 text-xs">Abertura → Término (média dos resolvidos)</p>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 shadow">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400 uppercase text-xs font-semibold">Tempo Médio de Solução</span>
+              </div>
+              <p class="mt-3 text-3xl font-semibold" id="kpi-solution-time">-</p>
+              <p class="mt-1 text-gray-500 text-xs">Início do técnico → Término (média dos resolvidos)</p>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-4 shadow">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400 uppercase text-xs font-semibold">Chamados Resolvidos (Hoje)</span>
+              </div>
+              <p class="mt-3 text-3xl font-semibold" id="kpi-resolved-today">0</p>
+              <p class="mt-1 text-gray-500 text-xs">Resolvidos hoje</p>
+            </div>
+          </div>
+
+          <!-- Middle charts row -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+            <div class="bg-gray-800 rounded-xl shadow lg:col-span-2 overflow-hidden">
+              <div class="bg-blue-600 px-4 py-2 text-center">
+                <span class="text-white font-semibold text-sm">Estado dos Chamados</span>
+              </div>
+              <div id="chart-estado-chamados" class="p-4">
+                <!-- resumo numérico via JS -->
+              </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-xl p-4 shadow">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-gray-300 font-semibold text-sm">Ranking do Mês</span>
+                <span id="ranking-mes-label" class="text-gray-500 text-xs">Carregando...</span>
+              </div>
+              <div id="ranking-tecnicos" class="space-y-2 max-h-48 overflow-y-auto">
+                <!-- preenchido via JS -->
+              </div>
+              <p class="mt-3 text-xs text-gray-500">Chamados resolvidos no mês atual</p>
+            </div>
+          </div>
+
+          <!-- Bottom section -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+            <div class="bg-gray-800 rounded-xl p-4 shadow lg:col-span-2">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-gray-300 font-semibold text-sm">Últimos Chamados &amp; Atividade</span>
+                <button
+                  id="btn-new-ticket"
+                  class="px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-xs font-semibold"
+                >
+                  Novo Chamado
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead class="text-gray-400 text-[11px] uppercase border-b border-gray-700">
+                    <tr>
+                      <th class="py-2 pr-3">ID</th>
+                      <th class="py-2 pr-3">Título</th>
+                      <th class="py-2 pr-3">Usuário</th>
+                      <th class="py-2 pr-3">Prioridade</th>
+                      <th class="py-2 pr-3">Status</th>
+                      <th class="py-2 pr-3">Técnico</th>
+                      <th class="py-2 pr-3">Tempo</th>
+                      <th class="py-2 pr-3">Resolução</th>
+                      <th class="py-2 pr-3">Última Atualização</th>
+                      <th class="py-2 pr-3">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody class="text-[11px]" id="tickets-body">
+                    <!-- Linhas de chamados serão preenchidas via JavaScript -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div class="bg-gray-800 rounded-xl p-4 shadow">
+                <span class="text-gray-300 font-semibold text-sm block mb-1">Resumo de Técnicos</span>
+                <p class="text-xs text-gray-400 mb-2">
+                  Gerencie o cadastro completo em <span class="font-semibold text-gray-200">Cadastro de Técnicos</span>.
+                </p>
+                <ul id="tech-list" class="space-y-1 text-xs text-gray-400 max-h-32 overflow-y-auto">
+                  <!-- preenchido via JS apenas como leitura -->
+                </ul>
+              </div>
+
+              <div class="bg-gray-800 rounded-xl shadow overflow-hidden">
+                <div class="bg-blue-600 px-4 py-2 text-center">
+                  <span class="text-white font-semibold text-sm">Chamados por Prioridade (Hoje)</span>
+                </div>
+                <div id="chamados-prioridade-hoje" class="p-4">
+                  <!-- preenchido via JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <!-- Modal Novo Chamado -->
+    <div
+      id="modal-ticket"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-sm font-semibold text-gray-200">Novo Chamado</h2>
+          <button id="modal-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">&times;</button>
+        </div>
+        <form id="form-ticket" class="space-y-3 text-xs">
+          <div>
+            <label class="block mb-1 text-gray-300" for="ticket-title">Título</label>
+            <input
+              id="ticket-title"
+              type="text"
+              required
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block mb-1 text-gray-300" for="ticket-user">Usuário</label>
+              <input
+                id="ticket-user"
+                type="text"
+                required
+                class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block mb-1 text-gray-300" for="ticket-secao">Seção</label>
+              <input
+                id="ticket-secao"
+                type="text"
+                placeholder="Ex: TI, RH"
+                class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block mb-1 text-gray-300" for="ticket-priority">Prioridade</label>
+              <select
+                id="ticket-priority"
+                class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500"
+              >
+                <option value="baixa">Baixa</option>
+                <option value="media">Média</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+            <div>
+              <label class="block mb-1 text-gray-300" for="ticket-status">Status</label>
+              <select
+                id="ticket-status"
+                class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500"
+              >
+                <option value="aberto">Aberto</option>
+                <option value="em_progresso">Em Progresso</option>
+                <option value="pendente">Pendente</option>
+                <option value="resolvido">Resolvido</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300" for="ticket-technician">Técnico Responsável</label>
+            <select
+              id="ticket-technician"
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Não atribuído</option>
+            </select>
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300" for="ticket-description">Descrição</label>
+            <textarea
+              id="ticket-description"
+              rows="3"
+              class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500 resize-none"
+            ></textarea>
+          </div>
+          <div class="flex justify-end space-x-2 pt-2">
+            <button
+              type="button"
+              id="btn-cancel"
+              class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-300 hover:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+            >
+              Salvar Chamado
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/auth.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Painel do Técnico - Chamados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div class="flex h-screen">
+      <aside class="w-64 bg-gray-800 flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-gray-700">
+          <span class="w-10 h-10 rounded-lg bg-blue-600 mr-3 flex items-center justify-center text-xl">🚁</span>
+          <span class="font-semibold text-lg text-gray-200">Aero Chamados</span>
+        </div>
+        <nav class="flex-1 px-4 py-4 space-y-2 text-sm">
+          <span class="block text-gray-400 text-xs uppercase mb-1">Técnico</span>
+          <a href="/tecnico.html" class="flex items-center px-3 py-2 rounded bg-gray-900 text-blue-400 font-medium">
+            <span class="ml-1">Meus Chamados</span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class="flex-1 flex flex-col">
+        <header
+          class="h-16 flex items-center justify-between px-8 border-b border-gray-800 bg-gray-900/80 backdrop-filter backdrop-blur"
+        >
+          <div>
+            <h1 class="text-lg font-semibold tracking-wide text-gray-200">Chamados Atribuídos</h1>
+            <p class="text-xs text-gray-500">Visualize e atualize os chamados sob sua responsabilidade</p>
+          </div>
+          <div class="flex items-center space-x-4 text-xs">
+            <span id="tech-name" class="text-gray-300 font-medium">Técnico Atual</span>
+            <button
+              id="btn-logout-tech"
+              class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-200 hover:bg-gray-800"
+            >
+              Sair
+            </button>
+          </div>
+        </header>
+
+        <section class="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
+          <div class="flex justify-between items-center mb-2">
+            <p class="text-xs text-gray-400">
+              Chamados em aberto:
+              <span id="tech-open" class="font-semibold text-gray-200">0</span>
+            </p>
+          </div>
+
+          <div class="bg-gray-800 rounded-xl p-4 shadow">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="text-gray-400 text-[11px] uppercase border-b border-gray-700">
+                  <tr>
+                    <th class="py-2 pr-3">ID</th>
+                    <th class="py-2 pr-3">Título</th>
+                    <th class="py-2 pr-3">Usuário</th>
+                    <th class="py-2 pr-3">Seção</th>
+                    <th class="py-2 pr-3">Prioridade</th>
+                    <th class="py-2 pr-3">Status</th>
+                    <th class="py-2 pr-3">Tempo</th>
+                    <th class="py-2 pr-3">Atualização</th>
+                    <th class="py-2 pr-3">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tech-tickets-body" class="text-[11px]">
+                  <!-- preenchido via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal Chat -->
+    <div
+      id="modal-chat"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-gray-800 rounded-xl w-full max-w-md shadow-xl border border-gray-700 flex flex-col max-h-[80vh]">
+        <div class="flex justify-between items-center px-4 py-3 border-b border-gray-700">
+          <h2 class="text-sm font-semibold text-gray-200">Chat - Chamado <span id="chat-ticket-id"></span></h2>
+          <button id="modal-chat-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">&times;</button>
+        </div>
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-2 min-h-[200px] max-h-[300px]">
+          <!-- mensagens via JS -->
+        </div>
+        <form id="form-chat" class="p-4 border-t border-gray-700">
+          <div class="flex gap-2">
+            <input
+              id="chat-input"
+              type="text"
+              placeholder="Digite sua mensagem..."
+              class="flex-1 px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+            />
+            <button type="submit" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-sm font-medium">
+              Enviar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Resolução -->
+    <div
+      id="modal-resolve"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-sm font-semibold text-gray-200">Resolver Chamado</h2>
+          <button id="modal-resolve-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">
+            &times;
+          </button>
+        </div>
+        <form id="form-resolve" class="space-y-3 text-xs">
+          <p class="text-gray-300">
+            Descreva o que foi realizado na resolução do chamado.
+          </p>
+          <textarea
+            id="resolve-note"
+            name="resolutionNote"
+            rows="4"
+            required
+            placeholder="Descreva o que foi feito para resolver o chamado (obrigatório)"
+            class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500 resize-none"
+          ></textarea>
+          <div class="flex justify-end space-x-2 pt-2">
+            <button
+              type="button"
+              id="btn-resolve-cancel"
+              class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-300 hover:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-500 text-white font-semibold"
+            >
+              Confirmar Resolução
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/auth.js"></script>
+    <script src="/tecnico.js"></script>
+  </body>
+</html>
+
