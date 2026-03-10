@@ -19,3 +19,4 @@ O servidor HTTP simples irá servir os arquivos estáticos em `public` na porta 
 - Implementar backend real (API) para CRUD de chamados e usuários.
 - Integrar o dashboard com dados dinâmicos do backend.
 *** End Patch```}/>
+# chonline
