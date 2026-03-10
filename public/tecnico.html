@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Painel do Técnico - Chamados</title>
+    <title>Painel do Técnico - Chamados Atribuídos</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
@@ -33,12 +33,15 @@
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div>
-            <h1 class="text-lg font-semibold tracking-wide text-gray-200">Chamados Atribuídos</h1>
-            <p class="text-xs text-gray-500 hidden sm:block">Visualize e atualize os chamados sob sua responsabilidade</p>
+              <h1 class="text-lg font-semibold tracking-wide text-gray-200">Meus Chamados Atribuídos</h1>
+              <p class="text-xs text-gray-500 hidden sm:block">Chamados sob sua responsabilidade</p>
             </div>
           </div>
-          <div class="flex items-center space-x-4 text-xs">
-            <span id="tech-name" class="text-gray-300 font-medium">Técnico Atual</span>
+          <div class="flex items-center gap-3">
+            <button id="btn-refresh-tech" class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-300 hover:bg-gray-800 text-xs" title="Atualizar lista">
+              Atualizar
+            </button>
+            <span id="tech-name" class="text-gray-300 font-medium text-sm">Técnico</span>
             <button
               id="btn-logout-tech"
               class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-200 hover:bg-gray-800"
@@ -48,15 +51,23 @@
           </div>
         </header>
 
-        <section class="mobile-content flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 text-sm">
-          <div class="flex justify-between items-center mb-2">
-            <p class="text-xs text-gray-400">
-              Chamados em aberto:
-              <span id="tech-open" class="font-semibold text-gray-200">0</span>
-            </p>
+        <section class="mobile-content flex-1 overflow-y-auto p-4 md:p-6 space-y-4 text-sm">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex items-center gap-4">
+              <p class="text-sm text-gray-400">
+                Chamados em aberto: <span id="tech-open" class="font-bold text-blue-400 text-lg">0</span>
+              </p>
+              <span id="tech-loading" class="text-gray-500 text-xs hidden">Carregando...</span>
+            </div>
           </div>
 
-          <div class="bg-gray-800 rounded-xl p-4 shadow">
+          <div id="tech-empty-state" class="hidden bg-gray-800/50 rounded-xl p-8 text-center border border-dashed border-gray-600">
+            <p class="text-gray-400 text-sm mb-2">Nenhum chamado atribuído a você no momento.</p>
+            <p class="text-gray-500 text-xs">Os chamados aparecerão aqui quando o administrador atribuí-los a você.</p>
+            <p class="text-gray-500 text-xs mt-2">Clique em "Atualizar" para verificar novamente.</p>
+          </div>
+
+          <div id="tech-tickets-container" class="bg-gray-800 rounded-xl p-4 shadow">
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs">
                 <thead class="text-gray-400 text-[11px] uppercase border-b border-gray-700">
@@ -73,7 +84,6 @@
                   </tr>
                 </thead>
                 <tbody id="tech-tickets-body" class="text-[11px]">
-                  <!-- preenchido via JS -->
                 </tbody>
               </table>
             </div>
@@ -92,9 +102,7 @@
           <h2 class="text-sm font-semibold text-gray-200">Chat - Chamado <span id="chat-ticket-id"></span></h2>
           <button id="modal-chat-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">&times;</button>
         </div>
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-2 min-h-[200px] max-h-[300px]">
-          <!-- mensagens via JS -->
-        </div>
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-2 min-h-[200px] max-h-[300px]"></div>
         <form id="form-chat" class="p-4 border-t border-gray-700">
           <div class="flex gap-2">
             <input
@@ -103,30 +111,21 @@
               placeholder="Digite sua mensagem..."
               class="flex-1 px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
             />
-            <button type="submit" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-sm font-medium">
-              Enviar
-            </button>
+            <button type="submit" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-sm font-medium">Enviar</button>
           </div>
         </form>
       </div>
     </div>
 
     <!-- Modal Resolução -->
-    <div
-      id="modal-resolve"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4 overflow-y-auto"
-    >
+    <div id="modal-resolve" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4 overflow-y-auto">
       <div class="bg-gray-800 rounded-xl p-4 md:p-6 w-full max-w-md shadow-xl border border-gray-700 my-4">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-sm font-semibold text-gray-200">Resolver Chamado</h2>
-          <button id="modal-resolve-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">
-            &times;
-          </button>
+          <button id="modal-resolve-close" class="text-gray-400 hover:text-gray-200 text-lg leading-none">&times;</button>
         </div>
         <form id="form-resolve" class="space-y-3 text-xs">
-          <p class="text-gray-300">
-            Descreva o que foi realizado na resolução do chamado.
-          </p>
+          <p class="text-gray-300">Descreva o que foi realizado na resolução do chamado.</p>
           <textarea
             id="resolve-note"
             name="resolutionNote"
@@ -136,19 +135,8 @@
             class="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-xs focus:outline-none focus:border-blue-500 resize-none"
           ></textarea>
           <div class="flex justify-end space-x-2 pt-2">
-            <button
-              type="button"
-              id="btn-resolve-cancel"
-              class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-300 hover:bg-gray-700"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-500 text-white font-semibold"
-            >
-              Confirmar Resolução
-            </button>
+            <button type="button" id="btn-resolve-cancel" class="px-3 py-1.5 rounded-full border border-gray-600 text-gray-300 hover:bg-gray-700">Cancelar</button>
+            <button type="submit" class="px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-500 text-white font-semibold">Confirmar Resolução</button>
           </div>
         </form>
       </div>
@@ -159,4 +147,3 @@
     <script src="/tecnico.js"></script>
   </body>
 </html>
-

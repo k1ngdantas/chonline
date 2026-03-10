@@ -150,13 +150,18 @@ const server = http.createServer((req, res) => {
           let tickets, users;
           if (useSupabase) {
             users = await db.getUsers();
-            tickets = await db.getTickets({ requesterId: requesterId ? Number(requesterId) : null, technicianId: technicianId ? Number(technicianId) : null });
+            const techId = technicianId != null && technicianId !== '' ? Number(technicianId) : null;
+            if (techId) {
+              tickets = (await db.getAssignedTickets(techId)) || [];
+            } else {
+              tickets = await db.getTickets({ requesterId: requesterId ? Number(requesterId) : null });
+            }
           } else {
             const data = readData();
             users = data.users || [];
             tickets = data.tickets || [];
             if (requesterId) tickets = tickets.filter((t) => t.requesterId === Number(requesterId));
-            if (technicianId) tickets = tickets.filter((t) => t.technicianId === Number(technicianId));
+            if (technicianId != null && technicianId !== '') tickets = tickets.filter((t) => Number(t.technicianId) === Number(technicianId));
           }
           tickets = tickets.map((t) => enrichTicketWithSecao(t, users));
           return sendJson(res, 200, tickets);
@@ -206,6 +211,11 @@ const server = http.createServer((req, res) => {
             };
             if (useSupabase) {
               const created = await db.createTicket(ticket);
+              if (created && created.technicianId) {
+                await db.assignTicket(created.id, created.technicianId, created.agent);
+                const refreshed = await db.getTicketById(created.id);
+                if (refreshed) return sendJson(res, 201, refreshed);
+              }
               return sendJson(res, 201, created);
             }
             const data = readData();
@@ -268,6 +278,15 @@ const server = http.createServer((req, res) => {
             if (body.resolutionNote !== undefined) ticket.resolutionNote = String(body.resolutionNote);
             ticket.updatedAt = new Date().toISOString();
 
+            if (useSupabase && body.technicianId !== undefined) {
+              const techId = body.technicianId != null ? Number(body.technicianId) : null;
+              const agent = body.agent !== undefined ? body.agent : ticket.agent;
+              const updated = await db.assignTicket(id, techId, agent);
+              if (updated) {
+                const users = await db.getUsers();
+                return sendJson(res, 200, enrichTicketWithSecao(updated, users));
+              }
+            }
             if (useSupabase) {
               const updated = await db.updateTicket(id, ticket);
               return sendJson(res, 200, updated);

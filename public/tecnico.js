@@ -31,6 +31,7 @@ function labelStatus(status) {
 }
 
 function formatRelativeDate(date) {
+  if (!date) return '-';
   const diffMs = Date.now() - new Date(date).getTime();
   const diffMin = Math.round(diffMs / 60000);
   if (diffMin < 1) return 'Agora';
@@ -45,6 +46,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tbody = document.getElementById('tech-tickets-body');
   const openEl = document.getElementById('tech-open');
   const nameEl = document.getElementById('tech-name');
+  const loadingEl = document.getElementById('tech-loading');
+  const emptyStateEl = document.getElementById('tech-empty-state');
+  const ticketsContainerEl = document.getElementById('tech-tickets-container');
+  const btnRefresh = document.getElementById('btn-refresh-tech');
   const btnLogout = document.getElementById('btn-logout-tech');
   const modalResolve = document.getElementById('modal-resolve');
   const modalResolveClose = document.getElementById('modal-resolve-close');
@@ -60,92 +65,112 @@ document.addEventListener('DOMContentLoaded', async () => {
   preventBackButton();
   currentTech = requireAuth('tecnico');
   if (!currentTech) return;
-  nameEl.textContent = currentTech.name;
+
+  nameEl.textContent = currentTech.name || 'Técnico';
+
+  function setLoading(loading) {
+    if (loadingEl) loadingEl.classList.toggle('hidden', !loading);
+  }
+
+  function showEmptyState(show) {
+    if (emptyStateEl) emptyStateEl.classList.toggle('hidden', !show);
+    if (ticketsContainerEl) ticketsContainerEl.classList.toggle('hidden', show);
+  }
 
   function render() {
+    if (!tbody) return;
     tbody.innerHTML = '';
     const activeTickets = tickets.filter((t) => t.status !== 'resolvido');
     const hasInProgress = activeTickets.some((t) => t.status === 'em_progresso');
+
+    showEmptyState(activeTickets.length === 0);
+
     activeTickets
       .slice()
-      .sort((a, b) => b.id - a.id)
+      .sort((a, b) => (b.id || 0) - (a.id || 0))
       .forEach((ticket) => {
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-gray-800';
-
+        tr.className = 'border-b border-gray-800 hover:bg-gray-800/50';
         const isInProgress = ticket.status === 'em_progresso';
         const canStartThis = ticket.status === 'na_fila' && !hasInProgress;
         const startDisabledAttr = canStartThis
-          ? 'class="btn-tech-start px-3 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-xs"'
+          ? 'class="btn-tech-start px-3 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-xs cursor-pointer"'
           : 'disabled class="opacity-40 cursor-not-allowed px-3 py-2 rounded-full bg-blue-500/30 text-xs"';
-
         const resolveDisabledAttr = isInProgress
-          ? 'class="btn-tech-resolve px-3 py-2 rounded-full bg-green-600 hover:bg-green-500 text-xs"'
+          ? 'class="btn-tech-resolve px-3 py-2 rounded-full bg-green-600 hover:bg-green-500 text-xs cursor-pointer"'
           : 'disabled class="opacity-40 cursor-not-allowed px-3 py-2 rounded-full bg-green-500/30 text-xs"';
 
         tr.innerHTML = `
           <td class="py-2 pr-3 text-gray-400">#${ticket.id}</td>
-          <td class="py-2 pr-3">${ticket.title}</td>
-          <td class="py-2 pr-3">${ticket.user}</td>
-          <td class="py-2 pr-3 text-blue-300 font-medium" title="Local para realizar o atendimento">${ticket.secao || '-'}</td>
-          <td class="py-2 pr-3">
-            <span class="${badgePriority(ticket.priority)}">${labelPriority(ticket.priority)}</span>
-          </td>
-          <td class="py-2 pr-3">
-            <span class="${badgeStatus(ticket.status)}">${labelStatus(ticket.status)}</span>
-          </td>
+          <td class="py-2 pr-3 font-medium">${escapeHtml(ticket.title || 'Sem título')}</td>
+          <td class="py-2 pr-3">${escapeHtml(ticket.user || '-')}</td>
+          <td class="py-2 pr-3 text-blue-300" title="Local do atendimento">${escapeHtml(ticket.secao || '-')}</td>
+          <td class="py-2 pr-3"><span class="${badgePriority(ticket.priority)}">${labelPriority(ticket.priority)}</span></td>
+          <td class="py-2 pr-3"><span class="${badgeStatus(ticket.status)}">${labelStatus(ticket.status)}</span></td>
           <td class="py-2 pr-3 text-gray-300">
-            <span class="ticket-timer" data-id="${ticket.id}">
-              ${ticket.startedAt ? formatRelativeDate(ticket.startedAt) : '-'}
-            </span>
+            <span class="ticket-timer" data-id="${ticket.id}">${ticket.startedAt ? formatRelativeDate(ticket.startedAt) : '-'}</span>
           </td>
           <td class="py-2 pr-3 text-gray-500">${formatRelativeDate(ticket.updatedAt)}</td>
           <td class="py-2 pr-3 space-x-2">
             ${isInProgress ? `<button data-id="${ticket.id}" class="btn-chat px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-xs">Chat</button>` : ''}
-            <button data-id="${ticket.id}" ${startDisabledAttr}>
-              Iniciar
-            </button>
-            <button data-id="${ticket.id}" ${resolveDisabledAttr}>
-              Resolver
-            </button>
+            <button data-id="${ticket.id}" ${startDisabledAttr}>Iniciar</button>
+            <button data-id="${ticket.id}" ${resolveDisabledAttr}>Resolver</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
-    openEl.textContent = activeTickets.length;
 
-    if (timerInterval) {
-      clearInterval(timerInterval);
-    }
+    if (openEl) openEl.textContent = activeTickets.length;
+
+    if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
-      const now = Date.now();
       activeTickets.forEach((ticket) => {
         if (!ticket.startedAt || ticket.status !== 'em_progresso') return;
         const started = new Date(ticket.startedAt).getTime();
-        const diffMs = now - started;
+        const diffMs = Date.now() - started;
         const totalMin = Math.floor(diffMs / 60000);
         const hours = Math.floor(totalMin / 60);
         const minutes = totalMin % 60;
-        const text =
-          hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+        const text = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
         const span = tbody.querySelector(`.ticket-timer[data-id="${ticket.id}"]`);
-        if (span) {
-          span.textContent = text;
-        }
+        if (span) span.textContent = text;
       });
     }, 1000);
   }
 
+  function escapeHtml(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
   async function loadTickets() {
-    try {
-      const res = await fetch(`/api/tickets?technicianId=${currentTech.id}`);
-      if (!res.ok) throw new Error('Erro ao carregar chamados');
-      tickets = await res.json();
+    const techId = currentTech && (currentTech.id != null && currentTech.id !== '') ? Number(currentTech.id) : null;
+    if (techId == null || isNaN(techId)) {
+      tickets = [];
       render();
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/tickets?technicianId=${techId}`);
+      const data = await res.json().catch(() => []);
+      tickets = Array.isArray(data) ? data : [];
+      if (!res.ok) {
+        console.error('Erro ao carregar chamados:', data?.error || res.status);
+      }
     } catch (err) {
       console.error(err);
+      tickets = [];
+    } finally {
+      setLoading(false);
+      render();
     }
   }
+
+  if (btnRefresh) btnRefresh.addEventListener('click', () => loadTickets());
+  if (btnLogout) btnLogout.addEventListener('click', logout);
 
   const modalChat = document.getElementById('modal-chat');
   const modalChatClose = document.getElementById('modal-chat-close');
@@ -163,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadChatMessages(ticketId) {
     try {
-      const res = await fetch(`/api/tickets/${ticketId}/messages`);
+      const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/messages`);
       if (!res.ok) return [];
       return await res.json();
     } catch {
@@ -178,7 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `
         <div class="flex ${isTech ? 'justify-end' : 'justify-start'}">
           <div class="max-w-[80%] rounded-lg px-3 py-2 ${isTech ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200'}">
-            <p class="text-[10px] opacity-80">${m.senderName} · ${formatChatTime(m.createdAt)}</p>
+            <p class="text-[10px] opacity-80">${escapeHtml(m.senderName)} · ${formatChatTime(m.createdAt)}</p>
             <p class="text-sm">${escapeHtml(m.text)}</p>
           </div>
         </div>
@@ -187,17 +212,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
   async function openChatModal(ticketId) {
     currentChatTicketId = ticketId;
-    chatTicketIdEl.textContent = '#' + ticketId;
-    chatInput.value = '';
-    modalChat.classList.remove('hidden');
+    if (chatTicketIdEl) chatTicketIdEl.textContent = '#' + ticketId;
+    if (chatInput) chatInput.value = '';
+    modalChat?.classList.remove('hidden');
     const msgs = await loadChatMessages(ticketId);
     renderChatMessages(msgs);
     if (chatPollInterval) clearInterval(chatPollInterval);
@@ -209,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function closeChatModal() {
-    modalChat.classList.add('hidden');
+    modalChat?.classList.add('hidden');
     currentChatTicketId = null;
     if (chatPollInterval) {
       clearInterval(chatPollInterval);
@@ -218,13 +237,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   modalChatClose?.addEventListener('click', closeChatModal);
-  modalChat?.addEventListener('click', (e) => {
-    if (e.target === modalChat) closeChatModal();
-  });
+  modalChat?.addEventListener('click', (e) => { if (e.target === modalChat) closeChatModal(); });
 
   formChat?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!currentChatTicketId || !chatInput.value.trim()) return;
+    if (!currentChatTicketId || !chatInput?.value?.trim()) return;
     const text = chatInput.value.trim();
     try {
       const res = await fetch(`${API_BASE}/api/tickets/${currentChatTicketId}/messages`, {
@@ -246,12 +263,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderChatMessages(msgs);
     } catch (err) {
       console.error(err);
-      const msg = err.message || 'Não foi possível enviar a mensagem.';
-      alert(msg.includes('fetch') || msg.includes('network') ? 'Erro de conexão. Verifique se o servidor está rodando e tente novamente.' : msg);
+      alert(err.message || 'Não foi possível enviar a mensagem.');
     }
   });
 
-  tbody.addEventListener('click', async (e) => {
+  tbody?.addEventListener('click', async (e) => {
     const chatBtn = e.target.closest('.btn-chat');
     if (chatBtn) {
       openChatModal(Number(chatBtn.dataset.id));
@@ -264,17 +280,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (startBtn && !startBtn.disabled) {
       try {
-        const res = await fetch(`/api/tickets/${id}`, {
+        const res = await fetch(`${API_BASE}/api/tickets/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'em_progresso' }),
         });
         if (!res.ok) throw new Error('Erro ao atualizar chamado');
         const updated = await res.json();
-        const index = tickets.findIndex((t) => t.id === id);
-        if (index !== -1) {
-          tickets[index] = updated;
-        }
+        const index = tickets.findIndex((t) => Number(t.id) === id);
+        if (index !== -1) tickets[index] = updated;
         render();
       } catch (err) {
         console.error(err);
@@ -285,73 +299,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (resolveBtn && !resolveBtn.disabled) {
       currentResolveId = id;
-      resolveNoteInput.value = '';
-      modalResolve.classList.remove('hidden');
-      return;
+      if (resolveNoteInput) resolveNoteInput.value = '';
+      modalResolve?.classList.remove('hidden');
     }
   });
 
-  if (btnLogout) {
-    btnLogout.addEventListener('click', logout);
-  }
-
   function closeResolveModal() {
-    modalResolve.classList.add('hidden');
+    modalResolve?.classList.add('hidden');
     currentResolveId = null;
-    resolveNoteInput.value = '';
+    if (resolveNoteInput) resolveNoteInput.value = '';
   }
 
-  if (modalResolveClose) {
-    modalResolveClose.addEventListener('click', closeResolveModal);
-  }
-  if (btnResolveCancel) {
-    btnResolveCancel.addEventListener('click', closeResolveModal);
-  }
-  if (formResolve) {
-    formResolve.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!currentResolveId) return;
-      const note = resolveNoteInput.value.trim();
-      if (!note) {
-        alert('Por favor, descreva a resolução do chamado.');
-        return;
-      }
-      const submitBtn = formResolve.querySelector('button[type="submit"]');
-      const originalText = submitBtn ? submitBtn.textContent : '';
+  modalResolveClose?.addEventListener('click', closeResolveModal);
+  btnResolveCancel?.addEventListener('click', closeResolveModal);
+
+  formResolve?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentResolveId) return;
+    const note = resolveNoteInput?.value?.trim();
+    if (!note) {
+      alert('Por favor, descreva a resolução do chamado.');
+      return;
+    }
+    const submitBtn = formResolve.querySelector('button[type="submit"]');
+    const originalText = submitBtn?.textContent || '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvando...';
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/tickets/${currentResolveId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'resolvido', resolutionNote: note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao resolver chamado');
+      const index = tickets.findIndex((t) => Number(t.id) === currentResolveId);
+      if (index !== -1) tickets[index] = data;
+      closeResolveModal();
+      render();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Não foi possível resolver o chamado.');
+    } finally {
       if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Salvando...';
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
       }
-      try {
-        const url = `${API_BASE}/api/tickets/${currentResolveId}`;
-        const res = await fetch(url, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'resolvido', resolutionNote: note }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data.error || 'Erro ao resolver chamado');
-        }
-        const index = tickets.findIndex((t) => Number(t.id) === currentResolveId);
-        if (index !== -1) {
-          tickets[index] = data;
-        }
-        closeResolveModal();
-        render();
-      } catch (err) {
-        console.error(err);
-        alert(err.message || 'Não foi possível resolver o chamado.');
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-        }
-      }
-    });
-  }
+    }
+  });
 
-  if (!ensureTech()) return;
   await loadTickets();
+  setInterval(loadTickets, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') loadTickets();
+  });
 });
-

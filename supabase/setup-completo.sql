@@ -1,7 +1,3 @@
--- Schema para Aero Chamados no Supabase
--- Execute no SQL Editor do Supabase: https://supabase.com/dashboard/project/_/sql
-
--- Tabela de usuários
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL DEFAULT 'Usuário',
@@ -13,11 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Índice para login
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username));
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
 
--- Tabela de chamados
 CREATE TABLE IF NOT EXISTS tickets (
   id BIGSERIAL PRIMARY KEY,
   title TEXT NOT NULL DEFAULT 'Sem título',
@@ -40,7 +34,6 @@ CREATE INDEX IF NOT EXISTS idx_tickets_requester ON tickets(requester_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_technician ON tickets(technician_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 
--- Tabela de mensagens do chat (opcional; o sistema usa memória para chat temporário)
 CREATE TABLE IF NOT EXISTS ticket_messages (
   id BIGSERIAL PRIMARY KEY,
   ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
@@ -53,7 +46,6 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_ticket ON ticket_messages(ticket_id);
 
--- Tabela de chamados atribuídos (vincula ticket_id ao technician_id)
 CREATE TABLE IF NOT EXISTS ticket_assignments (
   id BIGSERIAL PRIMARY KEY,
   ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
@@ -65,14 +57,14 @@ CREATE TABLE IF NOT EXISTS ticket_assignments (
 CREATE INDEX IF NOT EXISTS idx_assignments_technician ON ticket_assignments(technician_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_ticket ON ticket_assignments(ticket_id);
 
--- Inserir usuários admin padrão (execute após criar as tabelas)
--- Senha: 1234@
 INSERT INTO users (name, username, password, role)
 SELECT 'Administrador', 'sti', '1234@', 'Admin'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'sti');
+
 INSERT INTO users (name, username, password, role)
 SELECT 'Ten Marcus Dantas', 'marcusdantas', '1234@', 'Admin'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'marcusdantas');
+
 INSERT INTO users (name, username, password, role)
 SELECT 'Sgt L Antonio', 'lantonio', '1234@', 'Admin'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'lantonio');

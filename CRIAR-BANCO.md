@@ -81,3 +81,10 @@ WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'lantonio');
 ---
 
 Pronto! As tabelas `users`, `tickets` e `ticket_messages` serão criadas.
+
+---
+
+## Se a atribuição de técnicos não funcionar
+
+1. Execute `supabase/migrate-tickets.sql` para garantir que `technician_id` existe em `tickets`.
+2. Execute `supabase/criar-ticket-assignments.sql` para criar a tabela `ticket_assignments` (vincula ticket_id ao technician_id).

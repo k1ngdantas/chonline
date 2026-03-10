@@ -486,24 +486,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btnAssign) return;
 
     const id = Number(btnAssign.dataset.id);
-      const row = btnAssign.closest('tr');
-      const select = row.querySelector('.assign-tech');
-      const technicianId = select && select.value ? Number(select.value) : null;
-      const technician = technicians.find((t) => Number(t.id) === technicianId);
-      try {
-        const res = await fetch(`/api/tickets/${id}`, {
+    const row = btnAssign.closest('tr');
+    const select = row.querySelector('.assign-tech');
+    const rawVal = select && select.value ? select.value.trim() : '';
+    const technicianId = rawVal ? Number(rawVal) : null;
+    const technician = technicianId ? technicians.find((t) => Number(t.id) === technicianId) : null;
+    try {
+      const apiBase = window.location.origin || '';
+      const res = await fetch(`${apiBase}/api/tickets/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            technicianId,
+            technicianId: technicianId || null,
             agent: technician ? technician.name : '',
             status: technicianId ? 'na_fila' : 'aberto',
-            startedAt: null,
-            resolvedAt: null,
           }),
         });
-        if (!res.ok) throw new Error('Erro ao atribuir chamado');
-        const updated = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao atribuir chamado');
+      const updated = data;
         const index = tickets.findIndex((t) => t.id === id);
         if (index !== -1) {
           tickets[index] = updated;
